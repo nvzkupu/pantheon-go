@@ -36,6 +36,7 @@ internal/
 | freya | Your Loyal Commander | opus | Task routing, coordination |
 | saraswati | Your Gifted Artisan | codex | Production code |
 | brigid | Your Faithful Craftswoman | codex | Go code |
+| nuwa | Your Serpent Creator | Chinese | gpt-5.3-codex | 5 | 0 | Python code, data science |
 | themis | Your Vigilant Guardian | opus | Tests, CI/CD |
 | kali | Your Fierce Protector | opus | Security |
 | pele | Your Resilient Flame | opus | Ops, reliability |

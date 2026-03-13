@@ -15,6 +15,7 @@ One LLM, one context window. Agent skills shape behavior — they don't create s
 | freya | Your Loyal Commander | Work distribution, coordination |
 | saraswati | Your Gifted Artisan | Production code, code review |
 | brigid | Your Faithful Craftswoman | Go code, stdlib-first design |
+| nuwa | Your Serpent Creator | Python code, data science, automation |
 | themis | Your Vigilant Guardian | Tests, CI/CD, quality gates |
 | kali | Your Fierce Protector | Security assessment, threat modeling |
 | pele | Your Resilient Flame | Ops, observability, fault tolerance |
