@@ -14,6 +14,8 @@ import (
 	"github.com/zkupu/pantheon/internal/agent"
 	"github.com/zkupu/pantheon/internal/config"
 	"github.com/zkupu/pantheon/internal/gateway"
+	"github.com/zkupu/pantheon/internal/memory"
+	"github.com/zkupu/pantheon/internal/observe"
 	"github.com/zkupu/pantheon/internal/orchestrate"
 	"github.com/zkupu/pantheon/internal/tool"
 )
@@ -113,23 +115,7 @@ func equip(a *agent.Agent) {
 }
 
 func logHandler(verbose bool) func(agent.Event) {
-	return func(e agent.Event) {
-		switch e.Kind {
-		case agent.EventToolCall:
-			fmt.Fprintf(os.Stderr, "  [tool] %s(%s)\n", e.Tool, truncate(e.Content, 120))
-		case agent.EventToolResult:
-			if verbose {
-				fmt.Fprintf(os.Stderr, "  [result] %s\n", truncate(e.Content, 200))
-			}
-		case agent.EventError:
-			fmt.Fprintf(os.Stderr, "  [error] %s\n", e.Content)
-		case agent.EventReply:
-			if e.Usage.TotalTokens > 0 {
-				fmt.Fprintf(os.Stderr, "  [tokens] prompt=%d completion=%d total=%d\n",
-					e.Usage.PromptTokens, e.Usage.CompletionTokens, e.Usage.TotalTokens)
-			}
-		}
-	}
+	return observe.NewLogger(verbose).Handler()
 }
 
 func truncate(s string, n int) string {
@@ -165,8 +151,17 @@ func cmdChat(dir string, client *gateway.Client, name string, verbose bool) {
 		fmt.Fprintf(os.Stderr, "agent %q not found\n", name)
 		os.Exit(1)
 	}
+
+	store, _ := memory.NewFileStore(config.MemoryDir())
+	sessionID := memory.SessionID(name, "interactive")
+
+	if msgs, err := store.Load(sessionID); err == nil && len(msgs) > 0 {
+		fmt.Printf("[restored session %s]\n", sessionID[:8])
+	}
+	_ = store
+
 	fmt.Printf("Chatting with %s (%s) — model: %s\n", a.Name(), a.Persona(), a.Model())
-	fmt.Println("Commands: /reset  /quit")
+	fmt.Println("Commands: /reset  /save  /quit")
 	fmt.Println()
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -187,6 +182,11 @@ func cmdChat(dir string, client *gateway.Client, name string, verbose bool) {
 			fmt.Println("[history cleared]")
 			continue
 		}
+		if input == "/save" {
+			_ = store.Save(sessionID, a.History())
+			fmt.Printf("[session saved: %s]\n", sessionID[:8])
+			continue
+		}
 		fmt.Printf("\n%s> ", a.Name())
 		_, err := a.SendStream(input, func(chunk string) { fmt.Print(chunk) })
 		if err != nil {
@@ -195,6 +195,8 @@ func cmdChat(dir string, client *gateway.Client, name string, verbose bool) {
 		}
 		fmt.Print("\n\n")
 	}
+
+	_ = store.Save(sessionID, a.History())
 }
 
 func cmdAsk(dir string, client *gateway.Client, name, msg string, verbose bool) {
