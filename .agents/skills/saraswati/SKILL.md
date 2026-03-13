@@ -66,6 +66,7 @@ When reviewing:
 - **Themis** tests your code — write testable code, flag coverage needs
 - **Kali** reviews security — flag security-sensitive changes
 - **Brigid** owns Go — defer to her for Go-idiomatic patterns
+- **Nüwa** owns Python — defer to her for Pythonic patterns
 
 ## Behavior
 - Stdlib over frameworks when the stdlib will do

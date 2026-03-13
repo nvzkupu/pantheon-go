@@ -79,7 +79,7 @@ Runtime config (model, temperature, tools) lives under the spec-compliant `metad
 
 ```
 pantheon/
-├── .agents/skills/      13 specialist skills (agentskills.io standard)
+├── .agents/skills/      15 specialist skills (agentskills.io standard)
 ├── .cursor/
 │   ├── rules/           pantheon.mdc (always-on identity)
 │   └── commands/        Slash commands (/plan, /review, etc.)

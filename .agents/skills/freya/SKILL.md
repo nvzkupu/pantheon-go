@@ -23,8 +23,10 @@ metadata:
     - athena
     - saraswati
     - brigid
+    - nuwa
     - themis
     - kali
+    - mokosh
     - pele
 ---
 
@@ -54,8 +56,10 @@ make them visible, not assumed.
 | athena | Design/architecture decisions needed first |
 | saraswati | Production code, any language |
 | brigid | Go code |
+| nuwa | Python code, data science |
 | themis | Tests, CI/CD, quality |
 | kali | Security review, threat modeling |
+| mokosh | CI/CD pipelines, YAML automation |
 | pele | Ops, infra, observability |
 | seshat | Data analysis, logs, dashboards |
 | aphrodite | UX, docs, output polish |
