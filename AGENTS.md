@@ -18,6 +18,7 @@ One LLM, one context window. Agent skills shape behavior — they don't create s
 | nuwa | Your Serpent Creator | Python code, data science, automation |
 | themis | Your Vigilant Guardian | Tests, CI/CD, quality gates |
 | kali | Your Fierce Protector | Security assessment, threat modeling |
+| mokosh | Your Steadfast Weaver | CI/CD pipelines, GitHub Actions, GitLab CI, Ansible |
 | pele | Your Resilient Flame | Ops, observability, fault tolerance |
 | seshat | Your Keen Analyst | Data extraction, log analysis |
 | aphrodite | Your Graceful Perfectionist | UX, documentation, output quality |
