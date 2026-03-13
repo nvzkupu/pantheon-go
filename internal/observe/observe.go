@@ -19,7 +19,7 @@ type Trace struct {
 	StartedAt  time.Time     `json:"started_at"`
 	Spans      []Span        `json:"spans"`
 	TotalUsage gateway.Usage `json:"total_usage"`
-	Duration   time.Duration `json:"duration_ms"`
+	DurationMS float64       `json:"duration_ms"`
 }
 
 type Span struct {
@@ -65,7 +65,7 @@ func (t *Tracker) Finish(traceID string, usage gateway.Usage) *Trace {
 		return nil
 	}
 	trace.TotalUsage = usage
-	trace.Duration = time.Since(trace.StartedAt)
+	trace.DurationMS = float64(time.Since(trace.StartedAt).Milliseconds())
 	return trace
 }
 
@@ -141,8 +141,9 @@ func PrintTrace(trace *Trace) {
 }
 
 func truncate(s string, max int) string {
-	if len(s) <= max {
+	rs := []rune(s)
+	if len(rs) <= max {
 		return s
 	}
-	return s[:max] + "..."
+	return string(rs[:max]) + "..."
 }

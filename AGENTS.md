@@ -25,6 +25,7 @@ One LLM, one context window. Agent skills shape behavior — they don't create s
 | calliope | Your Eloquent Muse | Prompt design, LLM integration |
 | maat | Your Steadfast Arbiter | Values alignment (engineering culture) |
 | eris | Your Playful Challenger | Stress-test assumptions, probe clarity |
+| nisaba | Your Scribe of the Reed | Markdown, linting, formatting, code style |
 
 ## Protocol
 

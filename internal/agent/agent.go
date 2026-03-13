@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/zkupu/pantheon/internal/gateway"
 	"github.com/zkupu/pantheon/internal/skill"
@@ -27,18 +28,21 @@ type Event struct {
 }
 
 type Agent struct {
-	Skill   *skill.Skill
-	history []gateway.Message
-	client  *gateway.Client
-	tools   *tool.Registry
-	OnEvent func(Event)
+	Skill        *skill.Skill
+	SystemSuffix string
+	StrictTools  bool
+	history      []gateway.Message
+	client       *gateway.Client
+	tools        *tool.Registry
+	OnEvent      func(Event)
 }
 
 func New(s *skill.Skill, client *gateway.Client) *Agent {
 	a := &Agent{
-		Skill:  s,
-		client: client,
-		tools:  tool.NewRegistry(),
+		Skill:       s,
+		client:      client,
+		tools:       tool.NewRegistry(),
+		StrictTools: true,
 	}
 	a.Reset()
 	return a
@@ -51,7 +55,8 @@ func (a *Agent) UseFor() string      { return a.Skill.Description }
 func (a *Agent) ToolNames() []string { return a.Skill.Metadata.Tools }
 func (a *Agent) Delegates() []string { return a.Skill.Metadata.Delegates }
 func (a *Agent) Tools() *tool.Registry { return a.tools }
-func (a *Agent) History() []gateway.Message { return a.history }
+func (a *Agent) History() []gateway.Message  { return a.history }
+func (a *Agent) SetHistory(h []gateway.Message) { a.history = h }
 
 func (a *Agent) MaxIterations() int {
 	if n := a.Skill.Metadata.MaxIterations; n > 0 {
@@ -61,8 +66,8 @@ func (a *Agent) MaxIterations() int {
 }
 
 func (a *Agent) Temperature() float64 {
-	if t := a.Skill.Metadata.Temperature; t > 0 {
-		return t
+	if t := a.Skill.Metadata.Temperature; t != nil {
+		return *t
 	}
 	return 0.7
 }
@@ -91,9 +96,9 @@ func (a *Agent) chatReq() gateway.ChatRequest {
 }
 
 // Send does a simple non-streaming, non-tool request.
-func (a *Agent) Send(msg string) (string, error) {
+func (a *Agent) Send(ctx context.Context, msg string) (string, error) {
 	a.history = append(a.history, gateway.Message{Role: "user", Content: msg})
-	resp, err := a.client.Chat(a.chatReq())
+	resp, err := a.client.Chat(ctx, a.chatReq())
 	if err != nil {
 		return "", err
 	}
@@ -106,9 +111,9 @@ func (a *Agent) Send(msg string) (string, error) {
 }
 
 // SendStream sends a message and streams the response token by token.
-func (a *Agent) SendStream(msg string, onChunk func(string)) (string, error) {
+func (a *Agent) SendStream(ctx context.Context, msg string, onChunk func(string)) (string, error) {
 	a.history = append(a.history, gateway.Message{Role: "user", Content: msg})
-	full, err := a.client.ChatStream(a.chatReq(), onChunk)
+	full, err := a.client.ChatStream(ctx, a.chatReq(), onChunk)
 	if err != nil {
 		return "", err
 	}
@@ -119,9 +124,15 @@ func (a *Agent) SendStream(msg string, onChunk func(string)) (string, error) {
 // Run executes the ReAct loop: reason → call tools → observe → repeat until
 // the model produces a final text response or hits max iterations.
 func (a *Agent) Run(ctx context.Context, msg string) (string, error) {
+	return a.RunStream(ctx, msg, nil)
+}
+
+// RunStream executes the ReAct loop with streaming. The onChunk callback
+// receives content deltas as they arrive (may be nil for non-streaming).
+func (a *Agent) RunStream(ctx context.Context, msg string, onChunk func(string)) (string, error) {
 	a.history = append(a.history, gateway.Message{Role: "user", Content: msg})
 
-	toolDefs := a.tools.Definitions()
+	toolDefs := a.tools.Definitions(a.StrictTools)
 	hasTools := len(toolDefs) > 0
 	var totalUsage gateway.Usage
 
@@ -131,7 +142,33 @@ func (a *Agent) Run(ctx context.Context, msg string) (string, error) {
 			req.Tools = toolDefs
 		}
 
-		resp, err := a.client.ChatWithTools(req)
+		if onChunk != nil {
+			result, err := a.client.ChatStreamFull(ctx, req, onChunk)
+			if err != nil {
+				a.emit(Event{Kind: EventError, Content: err.Error()})
+				return "", fmt.Errorf("iteration %d: %w", i, err)
+			}
+
+			if len(result.ToolCalls) > 0 {
+				assistMsg := gateway.Message{Role: "assistant", Content: result.Content, ToolCalls: result.ToolCalls}
+				a.history = append(a.history, assistMsg)
+				for _, tc := range result.ToolCalls {
+					a.emit(Event{Kind: EventToolCall, Tool: tc.Function.Name, Content: tc.Function.Arguments})
+				}
+				results := a.tools.ExecuteAll(ctx, result.ToolCalls)
+				for _, r := range results {
+					a.emit(Event{Kind: EventToolResult, Content: r.Content})
+					a.history = append(a.history, r)
+				}
+				continue
+			}
+
+			a.history = append(a.history, gateway.Message{Role: "assistant", Content: result.Content})
+			a.emit(Event{Kind: EventReply, Content: result.Content, Usage: totalUsage})
+			return result.Content, nil
+		}
+
+		resp, err := a.client.ChatWithTools(ctx, req)
 		if err != nil {
 			a.emit(Event{Kind: EventError, Content: err.Error()})
 			return "", fmt.Errorf("iteration %d: %w", i, err)
@@ -165,11 +202,15 @@ func (a *Agent) Run(ctx context.Context, msg string) (string, error) {
 		return reply, nil
 	}
 
-	return "", fmt.Errorf("agent %q hit max iterations (%d)", a.Name(), a.MaxIterations())
+	return "", fmt.Errorf("agent %q hit max iterations (%d) without producing a final response; consider increasing max_iterations in the skill config or breaking the task into smaller steps", a.Name(), a.MaxIterations())
 }
 
 func (a *Agent) Reset() {
-	a.history = []gateway.Message{{Role: "system", Content: a.Skill.Body}}
+	body := a.Skill.Body
+	if a.SystemSuffix != "" {
+		body += a.SystemSuffix
+	}
+	a.history = []gateway.Message{{Role: "system", Content: body}}
 }
 
 // LoadAll discovers skills and returns a map of ready-to-use agents.
@@ -190,6 +231,8 @@ func EquipTools(a *Agent, builtins *tool.Registry) {
 	for _, name := range a.ToolNames() {
 		if t, ok := builtins.Get(name); ok {
 			a.tools.Register(t)
+		} else {
+			log.Printf("[warn] agent %q: tool %q not found in registry", a.Name(), name)
 		}
 	}
 }

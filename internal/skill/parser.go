@@ -22,7 +22,7 @@ type Skill struct {
 type Metadata struct {
 	Persona       string   `yaml:"persona"`
 	Model         string   `yaml:"model"`
-	Temperature   float64  `yaml:"temperature"`
+	Temperature   *float64 `yaml:"temperature,omitempty"`
 	MaxTokens     int      `yaml:"max_tokens"`
 	MaxIterations int      `yaml:"max_iterations"`
 	Tools         []string `yaml:"tools"`

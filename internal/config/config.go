@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,6 +70,7 @@ func LoadEnvFile(paths ...string) {
 		if err != nil {
 			continue
 		}
+		defer f.Close()
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
@@ -80,11 +82,14 @@ func LoadEnvFile(paths ...string) {
 				continue
 			}
 			k, v = strings.TrimSpace(k), strings.TrimSpace(v)
+			v = strings.Trim(v, "\"'")
 			if os.Getenv(k) == "" {
 				os.Setenv(k, v)
 			}
 		}
-		f.Close()
+		if err := scanner.Err(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: reading %s: %v\n", p, err)
+		}
 		return
 	}
 }

@@ -152,13 +152,18 @@ func cmdChat(dir string, client *gateway.Client, name string, verbose bool) {
 		os.Exit(1)
 	}
 
-	store, _ := memory.NewFileStore(config.MemoryDir())
+	store, err := memory.NewFileStore(config.MemoryDir())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not open session store: %v\n", err)
+	}
 	sessionID := memory.SessionID(name, "interactive")
 
-	if msgs, err := store.Load(sessionID); err == nil && len(msgs) > 0 {
-		fmt.Printf("[restored session %s]\n", sessionID[:8])
+	if store != nil {
+		if msgs, loadErr := store.Load(sessionID); loadErr == nil && len(msgs) > 0 {
+			a.SetHistory(msgs)
+			fmt.Printf("[restored session %s with %d messages]\n", sessionID[:8], len(msgs))
+		}
 	}
-	_ = store
 
 	fmt.Printf("Chatting with %s (%s) — model: %s\n", a.Name(), a.Persona(), a.Model())
 	fmt.Println("Commands: /reset  /save  /quit")
@@ -183,12 +188,14 @@ func cmdChat(dir string, client *gateway.Client, name string, verbose bool) {
 			continue
 		}
 		if input == "/save" {
-			_ = store.Save(sessionID, a.History())
-			fmt.Printf("[session saved: %s]\n", sessionID[:8])
+			if store != nil {
+				_ = store.Save(sessionID, a.History())
+				fmt.Printf("[session saved: %s]\n", sessionID[:8])
+			}
 			continue
 		}
 		fmt.Printf("\n%s> ", a.Name())
-		_, err := a.SendStream(input, func(chunk string) { fmt.Print(chunk) })
+		_, err := a.SendStream(context.Background(), input, func(chunk string) { fmt.Print(chunk) })
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "\nerror: %v\n", err)
 			continue
@@ -196,13 +203,15 @@ func cmdChat(dir string, client *gateway.Client, name string, verbose bool) {
 		fmt.Print("\n\n")
 	}
 
-	_ = store.Save(sessionID, a.History())
+	if store != nil {
+		_ = store.Save(sessionID, a.History())
+	}
 }
 
 func cmdAsk(dir string, client *gateway.Client, name, msg string, verbose bool) {
 	agents := loadAll(dir, client)
 	a := mustGet(agents, name)
-	_, err := a.SendStream(msg, func(chunk string) { fmt.Print(chunk) })
+	_, err := a.SendStream(context.Background(), msg, func(chunk string) { fmt.Print(chunk) })
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -409,7 +418,7 @@ func cmdWarRoom(dir string, client *gateway.Client, verbose bool) {
 					fmt.Println(reply)
 				}
 			} else {
-				_, err := a.SendStream(strings.TrimSpace(parts[1]), func(c string) { fmt.Print(c) })
+				_, err := a.SendStream(context.Background(), strings.TrimSpace(parts[1]), func(c string) { fmt.Print(c) })
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "\n  [error: %v]\n", err)
 				}
@@ -448,7 +457,7 @@ func broadcastAll(agents map[string]*agent.Agent, names []string, msg string, ve
 			if len(a.ToolNames()) > 0 {
 				reply, err = a.Run(context.Background(), msg)
 			} else {
-				reply, err = a.Send(msg)
+				reply, err = a.Send(context.Background(), msg)
 			}
 			results[idx] = resp{a.Name(), a.Persona(), reply, err, time.Since(start)}
 		}(i, n)

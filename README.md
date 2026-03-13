@@ -36,7 +36,7 @@ internal/
 | freya | Your Loyal Commander | opus | Task routing, coordination |
 | saraswati | Your Gifted Artisan | codex | Production code |
 | brigid | Your Faithful Craftswoman | codex | Go code |
-| nuwa | Your Serpent Creator | Chinese | gpt-5.3-codex | 5 | 0 | Python code, data science |
+| nuwa | Your Serpent Creator | codex | Python code, data science |
 | themis | Your Vigilant Guardian | opus | Tests, CI/CD |
 | kali | Your Fierce Protector | opus | Security |
 | mokosh | Your Steadfast Weaver | opus | CI/CD pipelines, Ansible |
@@ -46,6 +46,7 @@ internal/
 | calliope | Your Eloquent Muse | opus | Prompts, LLM integration |
 | maat | Your Steadfast Arbiter | opus | Values alignment |
 | eris | Your Playful Challenger | nano | Challenge assumptions |
+| nisaba | Your Scribe of the Reed | opus | Markdown, linting, formatting |
 
 ## Quick Start
 
@@ -79,7 +80,7 @@ Runtime config (model, temperature, tools) lives under the spec-compliant `metad
 
 ```
 pantheon/
-├── .agents/skills/      15 specialist skills (agentskills.io standard)
+├── .agents/skills/      16 specialist skills (agentskills.io standard)
 ├── .cursor/
 │   ├── rules/           pantheon.mdc (always-on identity)
 │   └── commands/        Slash commands (/plan, /review, etc.)

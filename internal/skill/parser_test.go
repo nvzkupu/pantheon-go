@@ -87,7 +87,7 @@ Body content here.`,
 				assertEqual(t, "license", s.License, "MIT")
 				assertEqual(t, "persona", s.Metadata.Persona, "Your Devoted Strategist")
 				assertEqual(t, "model", s.Metadata.Model, "opus-4")
-				if s.Metadata.Temperature != 0.5 {
+				if s.Metadata.Temperature == nil || *s.Metadata.Temperature != 0.5 {
 					t.Errorf("temperature: got %v, want 0.5", s.Metadata.Temperature)
 				}
 				if s.Metadata.MaxTokens != 8192 {

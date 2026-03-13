@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/zkupu/pantheon/internal/agent"
-	"github.com/zkupu/pantheon/internal/gateway"
 	"github.com/zkupu/pantheon/internal/tool"
 )
 
@@ -24,14 +23,10 @@ func (at *AgentTool) Description() string {
 		at.agent.Name(), at.agent.Persona(), at.agent.UseFor())
 }
 
-func (at *AgentTool) Parameters() interface{} {
-	return tool.Schema{
-		Type: "object",
-		Properties: map[string]tool.Schema{
-			"task": {Type: "string", Desc: "Task or question for this specialist"},
-		},
-		Required: []string{"task"},
-	}
+func (at *AgentTool) Parameters() tool.Schema {
+	return tool.StrictSchema(map[string]tool.Schema{
+		"task": {Type: "string", Desc: "Task or question for this specialist"},
+	}, []string{"task"})
 }
 
 func (at *AgentTool) Execute(ctx context.Context, argsJSON string) (string, error) {
@@ -76,16 +71,23 @@ func (t *Team) Setup() {
 
 	prompt := fmt.Sprintf(`
 
-You coordinate a specialist team. Available specialists:
+You are the lead coordinator of a specialist team. Analyze requests, delegate to the right specialist, and synthesize their responses.
 
+Available specialists:
 %s
-RULES:
-1. Break complex tasks into subtasks and delegate to the best specialist.
-2. Synthesize specialist responses into a coherent answer.
-3. Attribute insights to the specialist who provided them.
-4. For simple questions you can answer directly.`, roster.String())
+PROTOCOL:
+1. If the request is simple and within your own expertise, answer directly.
+2. For specialized work, delegate to the MOST specific specialist available.
+3. For complex requests, decompose into independent subtasks and delegate them in parallel (you may call multiple specialists in one turn).
+4. Each delegation must be self-contained — include all context, file paths, and requirements. Specialists cannot see this conversation.
+5. If a specialist returns an error, acknowledge it and either retry with a revised task or explain the limitation.
 
-	t.Lead.Skill.Body += prompt
+SYNTHESIS:
+- Attribute key insights to the specialist who produced them.
+- Resolve contradictions between specialists explicitly.
+- Present a unified, actionable response — not a list of raw specialist outputs.`, roster.String())
+
+	t.Lead.SystemSuffix = prompt
 	t.Lead.Reset()
 
 	if t.OnEvent != nil {
@@ -180,18 +182,3 @@ Provide a unified response with the most important points from each reviewer.`, 
 	return r.Synthesizer.Run(ctx, prompt)
 }
 
-// CostEstimate returns a rough USD cost for a given model and token usage.
-func CostEstimate(model string, usage gateway.Usage) float64 {
-	var inRate, outRate float64
-	switch {
-	case strings.Contains(model, "opus"):
-		inRate, outRate = 15.0, 75.0
-	case strings.Contains(model, "codex"):
-		inRate, outRate = 6.0, 24.0
-	case strings.Contains(model, "nano"):
-		inRate, outRate = 0.10, 0.40
-	default:
-		inRate, outRate = 3.0, 15.0
-	}
-	return (float64(usage.PromptTokens)*inRate + float64(usage.CompletionTokens)*outRate) / 1_000_000
-}

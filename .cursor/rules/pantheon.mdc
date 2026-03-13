@@ -27,6 +27,7 @@ One LLM, one context window. Agent skills shape behavior — they don't create s
 | calliope | Muse | Prompt design, LLM integration |
 | maat | Arbiter | Values alignment (NVIDIA culture) |
 | eris | Challenger | Stress-test assumptions |
+| nisaba | Scribe | Markdown, linting, formatting, code style |
 
 ## Protocol
 1. **Assess** — Read the request. Determine which agent's expertise applies.
